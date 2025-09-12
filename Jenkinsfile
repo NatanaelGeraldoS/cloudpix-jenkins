@@ -10,15 +10,24 @@ pipeline {
     REGISTRY          = 'docker.io'
     REGISTRY_NS       = 'natanaelgeraldo'      // TODO: ganti
     APP_NAME          = 'cloudpix'
-    GIT_SHA           = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-    IMAGE_TAG         = "${GIT_SHA}"
-    BACKEND_IMAGE     = "${env.REGISTRY}/${env.REGISTRY_NS}/${env.APP_NAME}-backend:${env.IMAGE_TAG}"
-    FRONTEND_IMAGE    = "${env.REGISTRY}/${env.REGISTRY_NS}/${env.APP_NAME}-frontend:${env.IMAGE_TAG}"
-    // Staging/prod host (opsional, kalau deploy remote via SSH or docker context)
-    // DOCKER_HOST      = 'ssh://ubuntu@staging.example.com'
   }
 
   stages {
+    stage('Init Vars') {
+      steps {
+        script {
+          env.GIT_SHA = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+          env.IMAGE_TAG = env.GIT_SHA
+
+          env.BACKEND_IMAGE  = "${env.REGISTRY}/${env.REGISTRY_NS}/${env.APP_NAME}-backend:${env.IMAGE_TAG}"
+          env.FRONTEND_IMAGE = "${env.REGISTRY}/${env.REGISTRY_NS}/${env.APP_NAME}-frontend:${env.IMAGE_TAG}"
+
+          echo "GIT_SHA=${env.GIT_SHA}"
+          echo "BACKEND_IMAGE=${env.BACKEND_IMAGE}"
+          echo "FRONTEND_IMAGE=${env.FRONTEND_IMAGE}"
+        }
+      }
+    }
 
     stage('Checkout') {
       steps { checkout scm }
