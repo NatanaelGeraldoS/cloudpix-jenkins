@@ -4,6 +4,7 @@ pipeline {
     timestamps()
     buildDiscarder(logRotator(numToKeepStr: '20'))
   }
+  tools { nodejs 'NodeJS' }
 
   environment {
     REGISTRY          = 'docker.io'
