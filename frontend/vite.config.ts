@@ -18,9 +18,11 @@ export default defineConfig({
     },
   },
   test: {
+    reporters: ['dot'],
     coverage: {
-      provider: 'v8',   
-      reporter: ['text', 'lcov', 'json'], 
-    },
-  },
+      provider: 'v8',
+      reporter: ['text', 'lcov', 'json'],
+      reportsDirectory: 'coverage'
+    }
+  }
 })
