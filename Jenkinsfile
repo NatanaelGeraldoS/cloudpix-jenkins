@@ -58,26 +58,20 @@ pipeline {
         parallel {
 
             stage('Backend: Jest + Supertest') {
-                steps {
-                    dir('backend') {
+                dir('backend') {
                     sh '''
                         npm ci
-                        # jalankan jest dengan junit + coverage (lcov)
-                        npx jest --coverage --runInBand \
-                        --reporters=default --reporters=jest-junit
+                        npx jest --runInBand --coverage
                     '''
                     }
-                }
-                post {
-                    always {
-                    // path hasil junit & coverage backend
-                    junit allowEmptyResults: true, testResults: 'backend/junit.xml'
-                    archiveArtifacts artifacts: 'backend/coverage/**', allowEmptyArchive: true
-                    }
-                }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, testResults: 'backend/junit.xml'
+                            archiveArtifacts artifacts: 'backend/coverage/**', allowEmptyArchive: true
+                        }
                 }
 
-                stage('Frontend: Vitest') {
+            stage('Frontend: Vitest') {
                 steps {
                     dir('frontend') {
                     sh '''
@@ -94,9 +88,9 @@ pipeline {
                     archiveArtifacts artifacts: 'frontend/coverage/**', allowEmptyArchive: true
                     }
                 }
-                }
+            }
 
-                stage('API Contract (Postman/Newman)') {
+            stage('API Contract (Postman/Newman)') {
                 when { expression { fileExists('tests/postman/collection.json') } }
                 steps {
                     sh '''
