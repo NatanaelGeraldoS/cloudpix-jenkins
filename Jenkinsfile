@@ -135,5 +135,29 @@ pipeline {
         }
       }
     }
+
+    stage('Security') {
+      parallel {
+        stage('Dependency Scan (Snyk)') {
+          steps {
+            withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+              sh '''
+                npm i -g snyk@latest
+                snyk auth ${SNYK_TOKEN}
+                (cd backend && snyk test || true)
+                (cd frontend && snyk test || true)
+              '''
+            }
+          }
+        }
+        stage('npm audit (baseline)') {
+          steps {
+            dir('backend') { sh 'npm audit --audit-level=high || true' }
+            dir('frontend') { sh 'npm audit --audit-level=high || true' }
+          }
+        }
+      }
+    }
+
   }
 }
