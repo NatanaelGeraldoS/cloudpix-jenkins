@@ -194,23 +194,23 @@ pipeline {
 
 
     stage('Deploy to Staging') {
-      steps {
+    steps {
         script {
-          // Stop existing containers if running
-          sh '''
-            docker-compose -f docker-compose.staging.yml down || true
+        // Stop existing containers if running
+        sh '''
+            docker compose -f docker-compose.staging.yml down || true
             docker system prune -f || true
-          '''
-          
-          // Deploy to staging environment
-          sh """
+        '''
+        
+        // Deploy to staging environment
+        sh """
             # Create staging environment variables
             echo "BACKEND_IMAGE=${env.BACKEND_IMAGE}" > .env.staging
             echo "FRONTEND_IMAGE=${env.FRONTEND_IMAGE}" >> .env.staging
             echo "IMAGE_TAG=${env.IMAGE_TAG}" >> .env.staging
             
-            # Deploy with docker-compose
-            docker-compose -f docker-compose.staging.yml --env-file .env.staging up -d
+            # Deploy with docker compose (V2 syntax)
+            docker compose -f docker-compose.staging.yml --env-file .env.staging up -d
             
             # Wait for services to be ready
             echo "Waiting for services to start..."
@@ -220,29 +220,29 @@ pipeline {
             docker ps
             
             # Check container logs if needed
-            docker-compose -f docker-compose.staging.yml logs --tail=20
-          """
+            docker compose -f docker-compose.staging.yml logs --tail=20
+        """
         }
-      }
-      post {
+    }
+    post {
         success {
-          echo 'Successfully deployed to staging environment!'
-          sh '''
+        echo 'Successfully deployed to staging environment!'
+        sh '''
             echo "=== STAGING DEPLOYMENT STATUS ==="
             echo "Frontend: http://localhost:3000"
             echo "Backend: http://localhost:5001"
-            docker-compose -f docker-compose.staging.yml ps
-          '''
+            docker compose -f docker-compose.staging.yml ps
+        '''
         }
         failure {
-          echo 'Deployment to staging failed!'
-          sh '''
+        echo 'Deployment to staging failed!'
+        sh '''
             echo "=== DEPLOYMENT FAILURE LOGS ==="
-            docker-compose -f docker-compose.staging.yml logs
-            docker-compose -f docker-compose.staging.yml ps
-          '''
+            docker compose -f docker-compose.staging.yml logs
+            docker compose -f docker-compose.staging.yml ps
+        '''
         }
-      }
+    }
     }
 
     stage('Staging Tests') {
