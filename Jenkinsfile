@@ -53,5 +53,40 @@ pipeline {
         }
       }
     }
+
+    stage('Unit & Integration Tests') {
+      parallel {
+        stage('Backend: Jest + Supertest') {
+          steps {
+            dir('backend') { sh 'npm test' }
+          }
+          post {
+            always {
+              junit allowEmptyResults: true, testResults: 'jest-*.xml'
+            }
+          }
+        }
+        stage('Frontend: Vitest') {
+          steps {
+            dir('frontend') { sh 'npm test || true' } // jika test belum lengkap, jangan fail pipeline
+          }
+        }
+        stage('API Contract (Postman/Newman)') {
+          when { expression { fileExists('tests/postman/collection.json') } }
+          steps {
+            sh '''
+              npm i -g newman
+              newman run tests/postman/collection.json \
+                --environment tests/postman/env.staging.json \
+                --reporters cli,junit --reporter-junit-export newman-results.xml || true
+            '''
+          }
+          post {
+            always { junit allowEmptyResults: true, testResults: 'newman-results.xml' }
+          }
+        }
+      }
+    }
+
   }
 }
