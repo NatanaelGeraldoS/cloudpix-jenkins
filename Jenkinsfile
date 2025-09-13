@@ -68,7 +68,11 @@ pipeline {
         }
         stage('Frontend: Vitest') {
           steps {
-            dir('frontend') { sh 'npm test || true' } // jika test belum lengkap, jangan fail pipeline
+            dir('frontend') { 
+                sh 'npm test || true'
+                archiveArtifacts artifacts: 'coverage/**', allowEmptyArchive: true 
+            }
+            
           }
         }
         stage('API Contract (Postman/Newman)') {
