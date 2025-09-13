@@ -176,6 +176,19 @@ pipeline {
         }
       }
     }
+    stage('Setup Docker CLI') {
+        steps {
+            script {
+                // Nama 'Docker' harus sama persis dgn yang di Global Tool Configuration
+                def dockerHome = tool name: 'Docker', type: 'org.jenkinsci.plugins.docker.commons.tools.DockerTool'
+                env.PATH = "${dockerHome}/bin:${env.PATH}"
+                sh 'docker --version || true'
+                // Optional: cek compose v2 tersedia
+                sh 'docker compose version || true'
+            }
+        }
+    }
+
 
     stage('Deploy to Staging') {
       steps {
