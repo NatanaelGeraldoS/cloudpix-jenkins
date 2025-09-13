@@ -92,5 +92,33 @@ pipeline {
       }
     }
 
+    stage('Code Quality (SonarQube)') {
+      steps {
+        withSonarQubeEnv('MySonar') {
+          // Backend analysis
+          dir('backend') {
+            sh """
+              sonar-scanner \
+                -Dsonar.projectKey=${APP_NAME}-backend \
+                -Dsonar.sources=./src \
+                -Dsonar.javascript.lcov.reportPaths=../coverage/lcov.info \
+                -Dsonar.sourceEncoding=UTF-8
+            """
+          }
+          // Frontend analysis
+          dir('frontend') {
+            sh """
+              sonar-scanner \
+                -Dsonar.projectKey=${APP_NAME}-frontend \
+                -Dsonar.sources=./src \
+                -Dsonar.javascript.lcov.reportPaths=./coverage/lcov.info \
+                -Dsonar.sourceEncoding=UTF-8
+            """
+          }
+        }
+      }
+    }
+
+
   }
 }
