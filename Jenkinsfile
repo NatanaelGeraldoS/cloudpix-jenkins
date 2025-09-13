@@ -242,7 +242,7 @@ pipeline {
         }
       }
     }
-
+  }
   post {
     always {
       // Clean up Docker images to save space
