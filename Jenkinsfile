@@ -5,7 +5,7 @@ pipeline {
     buildDiscarder(logRotator(numToKeepStr: '20'))
   }
   tools { 
-    nodejs 'NodeJS' 
+    nodejs 'NodeJS', 
     dockerTool 'Docker' 
   }
 
