@@ -210,6 +210,34 @@ pipeline {
         '''
       }
     }
+    stage('Test Docker Compose Container') {
+      steps {
+        sh '''
+          echo "=== Testing Docker Compose Container ==="
+          
+          # Test if the containerized docker-compose works
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "${PWD}":"${PWD}" \
+            -w "${PWD}" \
+            docker/compose:latest version
+            
+          echo "=== Testing Compose File Access ==="
+          # Test reading the compose file
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "${PWD}":"${PWD}" \
+            -w "${PWD}" \
+            docker/compose:latest -f docker-compose.staging.yml config || echo "Config test failed"
+            
+          echo "=== Environment Check ==="
+          echo "PWD=$PWD"
+          echo "Current user: $(whoami)"
+          echo "Current directory permissions:"
+          ls -ld "${PWD}"
+        '''
+      }
+    }
 
     stage('Deploy to Staging') {
       steps {
