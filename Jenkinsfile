@@ -179,26 +179,35 @@ pipeline {
         }
       }
     }
+
     stage('Setup Docker CLI') {
-        steps {
-            script {
-                // Nama 'Docker' harus sama persis dgn yang di Global Tool Configuration
-                def dockerHome = tool name: 'Docker', type: 'org.jenkinsci.plugins.docker.commons.tools.DockerTool'
-                env.PATH = "${dockerHome}/bin:${env.PATH}"
-                sh 'docker --version || true'
-                // Optional: cek compose v2 tersedia
-                sh 'docker compose version || true'
-            }
+      steps {
+        script {
+          // Nama 'Docker' harus sama persis dgn yang di Global Tool Configuration
+          def dockerHome = tool name: 'Docker', type: 'org.jenkinsci.plugins.docker.commons.tools.DockerTool'
+          env.PATH = "${dockerHome}/bin:${env.PATH}"
+          sh 'docker --version || true'
+          // Optional: cek compose v2 tersedia
+          sh 'docker compose version || true'
         }
+      }
     }
+
     stage('Deploy to Staging') {
       steps {
         script {
+          // Define Docker Compose command using container
+          def composeCmd = '''docker run --rm \\
+            -v /var/run/docker.sock:/var/run/docker.sock \\
+            -v "${PWD}":"${PWD}" \\
+            -w "${PWD}" \\
+            docker/compose:latest'''
+
           // Stop existing containers if running
-          sh '''
-            docker compose -f docker-compose.staging.yml down || true
+          sh """
+            ${composeCmd} -f docker-compose.staging.yml down || true
             docker system prune -f || true
-          '''
+          """
 
           // Deploy to staging environment
           sh """
@@ -207,8 +216,8 @@ pipeline {
             echo "FRONTEND_IMAGE=${env.FRONTEND_IMAGE}" >> .env.staging
             echo "IMAGE_TAG=${env.IMAGE_TAG}" >> .env.staging
 
-            # Deploy with Docker Compose v2
-            docker compose -f docker-compose.staging.yml --env-file .env.staging up -d
+            # Deploy with containerized Docker Compose
+            ${composeCmd} -f docker-compose.staging.yml --env-file .env.staging up -d
 
             # Wait for services to be ready
             echo "Waiting for services to start..."
@@ -218,34 +227,48 @@ pipeline {
             docker ps
 
             # Check container logs if needed
-            docker compose -f docker-compose.staging.yml logs --tail=20
+            ${composeCmd} -f docker-compose.staging.yml logs --tail=20
           """
         }
       }
       post {
         success {
-          echo 'Successfully deployed to staging environment!'
+          script {
+            def composeCmd = '''docker run --rm \\
+              -v /var/run/docker.sock:/var/run/docker.sock \\
+              -v "${PWD}":"${PWD}" \\
+              -w "${PWD}" \\
+              docker/compose:latest'''
 
-          sh '''
-            echo "=== STAGING DEPLOYMENT STATUS ==="
-            echo "Frontend: http://localhost:3000"
-            echo "Backend: http://localhost:5001"
-            docker compose -f docker-compose.staging.yml ps
-          '''
+            echo 'Successfully deployed to staging environment!'
+            sh """
+              echo "=== STAGING DEPLOYMENT STATUS ==="
+              echo "Frontend: http://localhost:3000"
+              echo "Backend: http://localhost:5001"
+              ${composeCmd} -f docker-compose.staging.yml ps
+            """
+          }
         }
         failure {
-          echo 'Deployment to staging failed!'
+          script {
+            def composeCmd = '''docker run --rm \\
+              -v /var/run/docker.sock:/var/run/docker.sock \\
+              -v "${PWD}":"${PWD}" \\
+              -w "${PWD}" \\
+              docker/compose:latest'''
 
-          sh '''
-            echo "=== DEPLOYMENT FAILURE LOGS ==="
-            docker compose -f docker-compose.staging.yml logs
-            docker compose -f docker-compose.staging.yml ps
-          '''
+            echo 'Deployment to staging failed!'
+            sh """
+              echo "=== DEPLOYMENT FAILURE LOGS ==="
+              ${composeCmd} -f docker-compose.staging.yml logs || echo "Failed to get logs"
+              ${composeCmd} -f docker-compose.staging.yml ps || echo "Failed to get container status"
+            """
+          }
         }
       }
     }
-
   }
+
   post {
     always {
       // Clean up Docker images to save space
