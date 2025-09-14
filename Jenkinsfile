@@ -220,42 +220,53 @@ pipeline {
     stage('Deploy to Staging') {
       steps {
         script {
-          // Deploy to staging environment
-          sh """
-            # Ensure docker-compose is in PATH
-            export PATH="\$HOME/.local/bin:\$PATH"
-            
-            # Create staging environment variables
-            echo "BACKEND_IMAGE=${env.BACKEND_IMAGE}" > .env.staging
-            echo "FRONTEND_IMAGE=${env.FRONTEND_IMAGE}" >> .env.staging
-            echo "IMAGE_TAG=${env.IMAGE_TAG}" >> .env.staging
-            
-            # Debug: Show current directory and files
-            echo "Current directory: \$(pwd)"
-            echo "Files in current directory:"
-            ls -la
-            echo "Environment file contents:"
-            cat .env.staging
-            echo "Docker Compose version:"
-            docker-compose --version || \$HOME/.local/bin/docker-compose --version
+          // Ensure docker-compose is in PATH
+          sh 'export PATH="$HOME/.local/bin:$PATH"'
 
-            # Stop existing containers
-            docker-compose -f docker-compose.staging.yml down || \$HOME/.local/bin/docker-compose -f docker-compose.staging.yml down || true
+          // Buat file substitusi image/tag utk compose
+          sh """
+            cat > .env.staging <<EOF
+    BACKEND_IMAGE=${env.BACKEND_IMAGE}
+    FRONTEND_IMAGE=${env.FRONTEND_IMAGE}
+    IMAGE_TAG=${env.IMAGE_TAG}
+    EOF
+          """
+
+          // Ambil secrets & tulis .env.backend (TIDAK di-echo)
+          withCredentials([
+            usernamePassword(credentialsId: 'CLOUDPIX_DB', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASS'),
+            string(credentialsId: 'CLOUDPIX_DB_NAME', variable: 'DB_NAME'),
+            string(credentialsId: 'CLOUDPIX_DB_HOST', variable: 'DB_HOST'),
+            string(credentialsId: 'CLOUDPIX_JWT', variable: 'JWT_SECRET')
+          ]) {
+            sh """
+              cat > .env.backend <<EOF
+    PORT=5000
+    ENV_TYPE=Production
+    DB_NAME=${DB_NAME}
+    DB_USER=${DB_USER}
+    DB_PASS=${DB_PASS}
+    DB_HOST=${DB_HOST}
+    JWT_SECRET=${JWT_SECRET}
+    EOF
+            """
+          }
+
+          // Stop & deploy
+          sh '''
+            docker-compose -f docker-compose.staging.yml down || $HOME/.local/bin/docker-compose -f docker-compose.staging.yml down || true
             docker system prune -f || true
 
-            # Deploy with docker-compose
-            docker-compose -f docker-compose.staging.yml --env-file .env.staging up -d || \$HOME/.local/bin/docker-compose -f docker-compose.staging.yml --env-file .env.staging up -d
+            docker-compose -f docker-compose.staging.yml --env-file .env.staging up -d \
+              || $HOME/.local/bin/docker-compose -f docker-compose.staging.yml --env-file .env.staging up -d
 
-            # Wait for services to be ready
             echo "Waiting for services to start..."
-            sleep 45
+            sleep 30
 
-            # Show running containers
             docker ps
-
-            # Check container logs
-            docker-compose -f docker-compose.staging.yml logs --tail=20 || \$HOME/.local/bin/docker-compose -f docker-compose.staging.yml logs --tail=20
-          """
+            docker-compose -f docker-compose.staging.yml logs --tail=50 \
+              || $HOME/.local/bin/docker-compose -f docker-compose.staging.yml logs --tail=50
+          '''
         }
       }
       post {
