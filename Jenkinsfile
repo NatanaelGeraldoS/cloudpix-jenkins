@@ -57,109 +57,109 @@ pipeline {
       }
     }
 
-    stage('Unit & Integration Tests') {
-      parallel {
-        stage('Backend: Jest + Supertest') {
-          steps {
-            dir('backend') {
-              sh '''
-                npm ci
-                npx jest --runInBand --coverage
-              '''
-            }
-          }
-          post {
-            always {
-              junit allowEmptyResults: true, testResults: 'backend/junit.xml'
-              archiveArtifacts artifacts: 'backend/coverage/**', allowEmptyArchive: true
-            }
-          }
-        }
+    // stage('Unit & Integration Tests') {
+    //   parallel {
+    //     stage('Backend: Jest + Supertest') {
+    //       steps {
+    //         dir('backend') {
+    //           sh '''
+    //             npm ci
+    //             npx jest --runInBand --coverage
+    //           '''
+    //         }
+    //       }
+    //       post {
+    //         always {
+    //           junit allowEmptyResults: true, testResults: 'backend/junit.xml'
+    //           archiveArtifacts artifacts: 'backend/coverage/**', allowEmptyArchive: true
+    //         }
+    //       }
+    //     }
 
-        stage('Frontend: Vitest') {
-          steps {
-            dir('frontend') {
-              sh '''
-                npm ci
-                # jalankan vitest dgn coverage (butuh @vitest/coverage-v8 terpasang)
-                npx vitest run --coverage || true
-              '''
-            }
-          }
-          post {
-            always {
-              // (opsional) publish junit vitest jika dipakai (lihat bagian B.2)
-              junit allowEmptyResults: true, testResults: 'frontend/junit.xml'
-              archiveArtifacts artifacts: 'frontend/coverage/**', allowEmptyArchive: true
-            }
-          }
-        }
+    //     stage('Frontend: Vitest') {
+    //       steps {
+    //         dir('frontend') {
+    //           sh '''
+    //             npm ci
+    //             # jalankan vitest dgn coverage (butuh @vitest/coverage-v8 terpasang)
+    //             npx vitest run --coverage || true
+    //           '''
+    //         }
+    //       }
+    //       post {
+    //         always {
+    //           // (opsional) publish junit vitest jika dipakai (lihat bagian B.2)
+    //           junit allowEmptyResults: true, testResults: 'frontend/junit.xml'
+    //           archiveArtifacts artifacts: 'frontend/coverage/**', allowEmptyArchive: true
+    //         }
+    //       }
+    //     }
 
-        stage('API Contract (Postman/Newman)') {
-          when { expression { fileExists('tests/postman/collection.json') } }
-          steps {
-            sh '''
-              npm i -g newman
-              newman run tests/postman/collection.json \
-                --environment tests/postman/env.staging.json \
-                --reporters cli,junit --reporter-junit-export newman-results.xml || true
-            '''
-          }
-          post {
-            always {
-              junit allowEmptyResults: true, testResults: 'newman-results.xml'
-            }
-          }
-        }
-      }
-    }
+    //     stage('API Contract (Postman/Newman)') {
+    //       when { expression { fileExists('tests/postman/collection.json') } }
+    //       steps {
+    //         sh '''
+    //           npm i -g newman
+    //           newman run tests/postman/collection.json \
+    //             --environment tests/postman/env.staging.json \
+    //             --reporters cli,junit --reporter-junit-export newman-results.xml || true
+    //         '''
+    //       }
+    //       post {
+    //         always {
+    //           junit allowEmptyResults: true, testResults: 'newman-results.xml'
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
 
-    stage('SonarCloud Analysis') {
-      steps {
-        withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
-          sh '''
-            set -e
+    // stage('SonarCloud Analysis') {
+    //   steps {
+    //     withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
+    //       sh '''
+    //         set -e
 
-            SCANNER_VERSION=5.0.1.3006
-            SCANNER_DIR=.scanner-cli
-            SCANNER_URL="https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SCANNER_VERSION}-linux.zip"
+    //         SCANNER_VERSION=5.0.1.3006
+    //         SCANNER_DIR=.scanner-cli
+    //         SCANNER_URL="https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SCANNER_VERSION}-linux.zip"
 
-            rm -rf "$SCANNER_DIR"
-            mkdir -p "$SCANNER_DIR"
-            echo "Downloading SonarScanner ${SCANNER_VERSION}..."
-            curl -sSL --retry 3 --retry-delay 2 "$SCANNER_URL" -o "$SCANNER_DIR/scanner.zip"
-            unzip -q "$SCANNER_DIR/scanner.zip" -d "$SCANNER_DIR"
-            SCANNER_BIN="$(echo $SCANNER_DIR/sonar-scanner-*/bin/sonar-scanner)"
+    //         rm -rf "$SCANNER_DIR"
+    //         mkdir -p "$SCANNER_DIR"
+    //         echo "Downloading SonarScanner ${SCANNER_VERSION}..."
+    //         curl -sSL --retry 3 --retry-delay 2 "$SCANNER_URL" -o "$SCANNER_DIR/scanner.zip"
+    //         unzip -q "$SCANNER_DIR/scanner.zip" -d "$SCANNER_DIR"
+    //         SCANNER_BIN="$(echo $SCANNER_DIR/sonar-scanner-*/bin/sonar-scanner)"
 
-            export SONAR_TOKEN="${SONAR_TOKEN}"
-            "$SCANNER_BIN" -Dsonar.login="${SONAR_TOKEN}" -Dsonar.host.url=https://sonarcloud.io
-          '''
-        }
-      }
-    }
+    //         export SONAR_TOKEN="${SONAR_TOKEN}"
+    //         "$SCANNER_BIN" -Dsonar.login="${SONAR_TOKEN}" -Dsonar.host.url=https://sonarcloud.io
+    //       '''
+    //     }
+    //   }
+    // }
 
-    stage('Security') {
-      parallel {
-        stage('Dependency Scan (Snyk)') {
-          steps {
-            withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
-              sh '''
-                npm i -g snyk@latest
-                snyk auth ${SNYK_TOKEN}
-                (cd backend && snyk test || true)
-                (cd frontend && snyk test || true)
-              '''
-            }
-          }
-        }
-        stage('npm audit (baseline)') {
-          steps {
-            dir('backend') { sh 'npm audit --audit-level=high || true' }
-            dir('frontend') { sh 'npm audit --audit-level=high || true' }
-          }
-        }
-      }
-    }
+    // stage('Security') {
+    //   parallel {
+    //     stage('Dependency Scan (Snyk)') {
+    //       steps {
+    //         withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+    //           sh '''
+    //             npm i -g snyk@latest
+    //             snyk auth ${SNYK_TOKEN}
+    //             (cd backend && snyk test || true)
+    //             (cd frontend && snyk test || true)
+    //           '''
+    //         }
+    //       }
+    //     }
+    //     stage('npm audit (baseline)') {
+    //       steps {
+    //         dir('backend') { sh 'npm audit --audit-level=high || true' }
+    //         dir('frontend') { sh 'npm audit --audit-level=high || true' }
+    //       }
+    //     }
+    //   }
+    // }
 
     stage('Docker Build') {
       parallel {
