@@ -205,7 +205,7 @@ pipeline {
 
           // Stop existing containers if running
           sh """
-            ${composeCmd} -f ops/docker-compose.staging.yml down || true
+            ${composeCmd} -f docker-compose.staging.yml down || true
             docker system prune -f || true
           """
 
@@ -217,7 +217,7 @@ pipeline {
             echo "IMAGE_TAG=${env.IMAGE_TAG}" >> .env.staging
 
             # Deploy with containerized Docker Compose
-            ${composeCmd} -f ops/docker-compose.staging.yml --env-file .env.staging up -d
+            ${composeCmd} -f docker-compose.staging.yml --env-file .env.staging up -d
 
             # Wait for services to be ready
             echo "Waiting for services to start..."
@@ -227,7 +227,7 @@ pipeline {
             docker ps
 
             # Check container logs if needed
-            ${composeCmd} -f ops/docker-compose.staging.yml logs --tail=20
+            ${composeCmd} -f docker-compose.staging.yml logs --tail=20
           """
         }
       }
@@ -245,7 +245,7 @@ pipeline {
               echo "=== STAGING DEPLOYMENT STATUS ==="
               echo "Frontend: http://localhost:3000"
               echo "Backend: http://localhost:5001"
-              ${composeCmd} -f ops/docker-compose.staging.yml ps
+              ${composeCmd} -f docker-compose.staging.yml ps
             """
           }
         }
@@ -260,8 +260,8 @@ pipeline {
             echo 'Deployment to staging failed!'
             sh """
               echo "=== DEPLOYMENT FAILURE LOGS ==="
-              ${composeCmd} -f ops/docker-compose.staging.yml logs || echo "Failed to get logs"
-              ${composeCmd} -f ops/docker-compose.staging.yml ps || echo "Failed to get container status"
+              ${composeCmd} -f docker-compose.staging.yml logs || echo "Failed to get logs"
+              ${composeCmd} -f docker-compose.staging.yml ps || echo "Failed to get container status"
             """
           }
         }
