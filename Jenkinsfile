@@ -193,6 +193,24 @@ pipeline {
       }
     }
 
+    stage('Debug File Structure') {
+      steps {
+        sh '''
+          echo "=== Current Directory ==="
+          pwd
+          
+          echo "=== List Files in Root ==="
+          ls -la
+          
+          echo "=== Check if docker-compose.staging.yml exists ==="
+          ls -la docker-compose.staging.yml || echo "docker-compose.staging.yml not found"
+          
+          echo "=== Contents of docker-compose.staging.yml (first 10 lines) ==="
+          head -10 docker-compose.staging.yml || echo "Could not read docker-compose.staging.yml"
+        '''
+      }
+    }
+
     stage('Deploy to Staging') {
       steps {
         script {
