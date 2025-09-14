@@ -199,16 +199,13 @@ pipeline {
           // Get the absolute workspace path
           def workspacePath = pwd()
           
-          // Define Docker Compose command using container with explicit paths
-          def composeCmd = """docker run --rm \\
-            -v /var/run/docker.sock:/var/run/docker.sock \\
-            -v "${workspacePath}":"${workspacePath}" \\
-            -w "${workspacePath}" \\
-            docker/compose:latest"""
-
           // Stop existing containers if running
           sh """
-            ${composeCmd} -f docker-compose.staging.yml down || true
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v ${workspacePath}:/workspace \
+              -w /workspace \
+              docker/compose:latest -f docker-compose.staging.yml down || true
             docker system prune -f || true
           """
 
@@ -226,8 +223,12 @@ pipeline {
             echo "Environment file contents:"
             cat .env.staging
 
-            # Deploy with containerized Docker Compose
-            ${composeCmd} -f docker-compose.staging.yml --env-file .env.staging up -d
+            # Deploy with containerized Docker Compose using simple mount
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v ${workspacePath}:/workspace \
+              -w /workspace \
+              docker/compose:latest -f docker-compose.staging.yml --env-file .env.staging up -d
 
             # Wait for services to be ready
             echo "Waiting for services to start..."
@@ -237,7 +238,11 @@ pipeline {
             docker ps
 
             # Check container logs if needed
-            ${composeCmd} -f docker-compose.staging.yml logs --tail=20
+            docker run --rm \
+              -v /var/run/docker.sock:/var/run/docker.sock \
+              -v ${workspacePath}:/workspace \
+              -w /workspace \
+              docker/compose:latest -f docker-compose.staging.yml logs --tail=20
           """
         }
       }
@@ -245,35 +250,37 @@ pipeline {
         success {
           script {
             def workspacePath = pwd()
-            def composeCmd = """docker run --rm \\
-              -v /var/run/docker.sock:/var/run/docker.sock \\
-              -v "${workspacePath}":"${workspacePath}" \\
-              -w "${workspacePath}" \\
-              docker/compose:latest"""
 
             echo 'Successfully deployed to staging environment!'
             sh """
               echo "=== STAGING DEPLOYMENT STATUS ==="
               echo "Frontend: http://localhost:3000"
               echo "Backend: http://localhost:5001"
-              ${composeCmd} -f docker-compose.staging.yml ps
+              docker run --rm \
+                -v /var/run/docker.sock:/var/run/docker.sock \
+                -v ${workspacePath}:/workspace \
+                -w /workspace \
+                docker/compose:latest -f docker-compose.staging.yml ps
             """
           }
         }
         failure {
           script {
             def workspacePath = pwd()
-            def composeCmd = """docker run --rm \\
-              -v /var/run/docker.sock:/var/run/docker.sock \\
-              -v "${workspacePath}":"${workspacePath}" \\
-              -w "${workspacePath}" \\
-              docker/compose:latest"""
 
             echo 'Deployment to staging failed!'
             sh """
               echo "=== DEPLOYMENT FAILURE LOGS ==="
-              ${composeCmd} -f docker-compose.staging.yml logs || echo "Failed to get logs"
-              ${composeCmd} -f docker-compose.staging.yml ps || echo "Failed to get container status"
+              docker run --rm \
+                -v /var/run/docker.sock:/var/run/docker.sock \
+                -v ${workspacePath}:/workspace \
+                -w /workspace \
+                docker/compose:latest -f docker-compose.staging.yml logs || echo "Failed to get logs"
+              docker run --rm \
+                -v /var/run/docker.sock:/var/run/docker.sock \
+                -v ${workspacePath}:/workspace \
+                -w /workspace \
+                docker/compose:latest -f docker-compose.staging.yml ps || echo "Failed to get container status"
             """
           }
         }
