@@ -240,7 +240,7 @@ pipeline {
             string(credentialsId: 'CLOUDPIX_JWT', variable: 'JWT_SECRET')
           ]) {
             sh """
-              cat > .env.backend <<EOF
+              cat > .env.backend <<'EOF'
     PORT=5000
     ENV_TYPE=Production
     DB_NAME=${DB_NAME}
