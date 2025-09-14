@@ -192,21 +192,27 @@ pipeline {
         }
       }
     }
+
     stage('Install Docker Compose') {
       steps {
         sh '''
           # Check if docker-compose already exists
           if ! command -v docker-compose &> /dev/null; then
-            echo "Installing Docker Compose..."
-            # Download and install Docker Compose v2.21.0
-            sudo curl -L "https://github.com/docker/compose/releases/download/v2.21.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-            sudo chmod +x /usr/local/bin/docker-compose
-            # Create symlink if needed
-            sudo ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
+            echo "Installing Docker Compose to user directory..."
+            
+            # Create local bin directory
+            mkdir -p $HOME/.local/bin
+            
+            # Download Docker Compose
+            curl -L "https://github.com/docker/compose/releases/download/v2.21.0/docker-compose-$(uname -s)-$(uname -m)" -o $HOME/.local/bin/docker-compose
+            chmod +x $HOME/.local/bin/docker-compose
+            
+            # Add to PATH for this session
+            export PATH="$HOME/.local/bin:$PATH"
           fi
           
           # Verify installation
-          docker-compose --version
+          $HOME/.local/bin/docker-compose --version || docker-compose --version || echo "Docker Compose installation failed"
         '''
       }
     }
@@ -214,48 +220,63 @@ pipeline {
     stage('Deploy to Staging') {
       steps {
         script {
-          sh '''
-            docker-compose -f docker-compose.staging.yml --env-file .env.staging up -d
-          '''
+          // Deploy to staging environment
+          sh """
+            # Ensure docker-compose is in PATH
+            export PATH="\$HOME/.local/bin:\$PATH"
+            
+            # Create staging environment variables
+            echo "BACKEND_IMAGE=${env.BACKEND_IMAGE}" > .env.staging
+            echo "FRONTEND_IMAGE=${env.FRONTEND_IMAGE}" >> .env.staging
+            echo "IMAGE_TAG=${env.IMAGE_TAG}" >> .env.staging
+            
+            # Debug: Show current directory and files
+            echo "Current directory: \$(pwd)"
+            echo "Files in current directory:"
+            ls -la
+            echo "Environment file contents:"
+            cat .env.staging
+            echo "Docker Compose version:"
+            docker-compose --version || \$HOME/.local/bin/docker-compose --version
+
+            # Stop existing containers
+            docker-compose -f docker-compose.staging.yml down || \$HOME/.local/bin/docker-compose -f docker-compose.staging.yml down || true
+            docker system prune -f || true
+
+            # Deploy with docker-compose
+            docker-compose -f docker-compose.staging.yml --env-file .env.staging up -d || \$HOME/.local/bin/docker-compose -f docker-compose.staging.yml --env-file .env.staging up -d
+
+            # Wait for services to be ready
+            echo "Waiting for services to start..."
+            sleep 45
+
+            # Show running containers
+            docker ps
+
+            # Check container logs
+            docker-compose -f docker-compose.staging.yml logs --tail=20 || \$HOME/.local/bin/docker-compose -f docker-compose.staging.yml logs --tail=20
+          """
         }
       }
       post {
         success {
-          script {
-            def workspacePath = pwd()
-
-            echo 'Successfully deployed to staging environment!'
-            sh """
-              echo "=== STAGING DEPLOYMENT STATUS ==="
-              echo "Frontend: http://localhost:3000"
-              echo "Backend: http://localhost:5001"
-              docker run --rm \
-                -v /var/run/docker.sock:/var/run/docker.sock \
-                -v ${workspacePath}:/workspace \
-                -w /workspace \
-                docker/compose:latest -f docker-compose.staging.yml ps
-            """
-          }
+          echo 'Successfully deployed to staging environment!'
+          sh '''
+            export PATH="$HOME/.local/bin:$PATH"
+            echo "=== STAGING DEPLOYMENT STATUS ==="
+            echo "Frontend: http://localhost:3000"
+            echo "Backend: http://localhost:5001"
+            docker-compose -f docker-compose.staging.yml ps || $HOME/.local/bin/docker-compose -f docker-compose.staging.yml ps
+          '''
         }
         failure {
-          script {
-            def workspacePath = pwd()
-
-            echo 'Deployment to staging failed!'
-            sh """
-              echo "=== DEPLOYMENT FAILURE LOGS ==="
-              docker run --rm \
-                -v /var/run/docker.sock:/var/run/docker.sock \
-                -v ${workspacePath}:/workspace \
-                -w /workspace \
-                docker/compose:latest -f docker-compose.staging.yml logs || echo "Failed to get logs"
-              docker run --rm \
-                -v /var/run/docker.sock:/var/run/docker.sock \
-                -v ${workspacePath}:/workspace \
-                -w /workspace \
-                docker/compose:latest -f docker-compose.staging.yml ps || echo "Failed to get container status"
-            """
-          }
+          echo 'Deployment to staging failed!'
+          sh '''
+            export PATH="$HOME/.local/bin:$PATH"
+            echo "=== DEPLOYMENT FAILURE LOGS ==="
+            docker-compose -f docker-compose.staging.yml logs || $HOME/.local/bin/docker-compose -f docker-compose.staging.yml logs || echo "Failed to get logs"
+            docker-compose -f docker-compose.staging.yml ps || $HOME/.local/bin/docker-compose -f docker-compose.staging.yml ps || echo "Failed to get container status"
+          '''
         }
       }
     }
