@@ -192,58 +192,31 @@ pipeline {
         }
       }
     }
+    stage('Install Docker Compose') {
+      steps {
+        sh '''
+          # Check if docker-compose already exists
+          if ! command -v docker-compose &> /dev/null; then
+            echo "Installing Docker Compose..."
+            # Download and install Docker Compose v2.21.0
+            sudo curl -L "https://github.com/docker/compose/releases/download/v2.21.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+            sudo chmod +x /usr/local/bin/docker-compose
+            # Create symlink if needed
+            sudo ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
+          fi
+          
+          # Verify installation
+          docker-compose --version
+        '''
+      }
+    }
 
     stage('Deploy to Staging') {
       steps {
         script {
-          // Get the absolute workspace path
-          def workspacePath = pwd()
-          
-          // Stop existing containers if running
-          sh """
-            docker run --rm \
-              -v /var/run/docker.sock:/var/run/docker.sock \
-              -v ${workspacePath}:/workspace \
-              -w /workspace \
-              docker/compose:latest -f docker-compose.staging.yml down || true
-            docker system prune -f || true
-          """
-
-          // Deploy to staging environment
-          sh """
-            # Create staging environment variables
-            echo "BACKEND_IMAGE=${env.BACKEND_IMAGE}" > .env.staging
-            echo "FRONTEND_IMAGE=${env.FRONTEND_IMAGE}" >> .env.staging
-            echo "IMAGE_TAG=${env.IMAGE_TAG}" >> .env.staging
-            
-            # Debug: Show current directory and files
-            echo "Current directory: \$(pwd)"
-            echo "Files in current directory:"
-            ls -la
-            echo "Environment file contents:"
-            cat .env.staging
-
-            # Deploy with containerized Docker Compose using simple mount
-            docker run --rm \
-              -v /var/run/docker.sock:/var/run/docker.sock \
-              -v ${workspacePath}:/workspace \
-              -w /workspace \
-              docker/compose:latest -f docker-compose.staging.yml --env-file .env.staging up -d
-
-            # Wait for services to be ready
-            echo "Waiting for services to start..."
-            sleep 45
-
-            # Show running containers
-            docker ps
-
-            # Check container logs if needed
-            docker run --rm \
-              -v /var/run/docker.sock:/var/run/docker.sock \
-              -v ${workspacePath}:/workspace \
-              -w /workspace \
-              docker/compose:latest -f docker-compose.staging.yml logs --tail=20
-          """
+          sh '''
+            docker-compose -f docker-compose.staging.yml --env-file .env.staging up -d
+          '''
         }
       }
       post {
