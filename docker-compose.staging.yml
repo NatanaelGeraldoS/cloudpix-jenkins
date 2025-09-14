@@ -11,9 +11,6 @@ services:
         environment:
             - NODE_ENV=staging
             - PORT=5000
-            - DATABASE_URL=${DATABASE_URL:-postgresql://user:password@db:5432/cloudpix_staging}
-        depends_on:
-            - db
         networks:
             - cloudpix-staging
         restart: unless-stopped
