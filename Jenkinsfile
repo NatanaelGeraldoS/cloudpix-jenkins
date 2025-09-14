@@ -193,61 +193,18 @@ pipeline {
       }
     }
 
-    stage('Debug File Structure') {
-      steps {
-        sh '''
-          echo "=== Current Directory ==="
-          pwd
-          
-          echo "=== List Files in Root ==="
-          ls -la
-          
-          echo "=== Check if docker-compose.staging.yml exists ==="
-          ls -la docker-compose.staging.yml || echo "docker-compose.staging.yml not found"
-          
-          echo "=== Contents of docker-compose.staging.yml (first 10 lines) ==="
-          head -10 docker-compose.staging.yml || echo "Could not read docker-compose.staging.yml"
-        '''
-      }
-    }
-    stage('Test Docker Compose Container') {
-      steps {
-        sh '''
-          echo "=== Testing Docker Compose Container ==="
-          
-          # Test if the containerized docker-compose works
-          docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -v "${PWD}":"${PWD}" \
-            -w "${PWD}" \
-            docker/compose:latest version
-            
-          echo "=== Testing Compose File Access ==="
-          # Test reading the compose file
-          docker run --rm \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -v "${PWD}":"${PWD}" \
-            -w "${PWD}" \
-            docker/compose:latest -f docker-compose.staging.yml config || echo "Config test failed"
-            
-          echo "=== Environment Check ==="
-          echo "PWD=$PWD"
-          echo "Current user: $(whoami)"
-          echo "Current directory permissions:"
-          ls -ld "${PWD}"
-        '''
-      }
-    }
-
     stage('Deploy to Staging') {
       steps {
         script {
-          // Define Docker Compose command using container
-          def composeCmd = '''docker run --rm \\
+          // Get the absolute workspace path
+          def workspacePath = pwd()
+          
+          // Define Docker Compose command using container with explicit paths
+          def composeCmd = """docker run --rm \\
             -v /var/run/docker.sock:/var/run/docker.sock \\
-            -v "${PWD}":"${PWD}" \\
-            -w "${PWD}" \\
-            docker/compose:latest'''
+            -v "${workspacePath}":"${workspacePath}" \\
+            -w "${workspacePath}" \\
+            docker/compose:latest"""
 
           // Stop existing containers if running
           sh """
@@ -261,6 +218,13 @@ pipeline {
             echo "BACKEND_IMAGE=${env.BACKEND_IMAGE}" > .env.staging
             echo "FRONTEND_IMAGE=${env.FRONTEND_IMAGE}" >> .env.staging
             echo "IMAGE_TAG=${env.IMAGE_TAG}" >> .env.staging
+            
+            # Debug: Show current directory and files
+            echo "Current directory: \$(pwd)"
+            echo "Files in current directory:"
+            ls -la
+            echo "Environment file contents:"
+            cat .env.staging
 
             # Deploy with containerized Docker Compose
             ${composeCmd} -f docker-compose.staging.yml --env-file .env.staging up -d
@@ -280,11 +244,12 @@ pipeline {
       post {
         success {
           script {
-            def composeCmd = '''docker run --rm \\
+            def workspacePath = pwd()
+            def composeCmd = """docker run --rm \\
               -v /var/run/docker.sock:/var/run/docker.sock \\
-              -v "${PWD}":"${PWD}" \\
-              -w "${PWD}" \\
-              docker/compose:latest'''
+              -v "${workspacePath}":"${workspacePath}" \\
+              -w "${workspacePath}" \\
+              docker/compose:latest"""
 
             echo 'Successfully deployed to staging environment!'
             sh """
@@ -297,11 +262,12 @@ pipeline {
         }
         failure {
           script {
-            def composeCmd = '''docker run --rm \\
+            def workspacePath = pwd()
+            def composeCmd = """docker run --rm \\
               -v /var/run/docker.sock:/var/run/docker.sock \\
-              -v "${PWD}":"${PWD}" \\
-              -w "${PWD}" \\
-              docker/compose:latest'''
+              -v "${workspacePath}":"${workspacePath}" \\
+              -w "${workspacePath}" \\
+              docker/compose:latest"""
 
             echo 'Deployment to staging failed!'
             sh """
