@@ -304,10 +304,17 @@ pipeline {
 
             # install octo cli jika belum ada
             if ! command -v octo >/dev/null 2>&1; then
-              curl -sSL https://octopus.com/downloads/latest/OctopusCLI/linux-x64 | tar -xz
-              mv octo $HOME/.local/bin/octo || sudo mv octo /usr/local/bin/octo
+              mkdir -p "$HOME/.local/bin"
+              curl -fsSL -o /tmp/octo.tar.gz \
+                https://github.com/OctopusDeploy/OctopusCLI/releases/latest/download/octo-linux-x64.tar.gz
+              tar -xzf /tmp/octo.tar.gz -C /tmp
+              mv /tmp/octo "$HOME/.local/bin/octo"
+              chmod +x "$HOME/.local/bin/octo"
               export PATH="$HOME/.local/bin:$PATH"
             fi
+
+            octo version
+
 
             # Buat release (versi = commit sha) dan kirim variable tag ke Octopus
             octo create-release \
