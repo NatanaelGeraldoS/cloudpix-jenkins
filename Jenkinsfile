@@ -298,7 +298,7 @@ pipeline {
     stage('Release to Production (Octopus)') {
       steps {
         withCredentials([string(credentialsId: 'OCTOPUS_API_KEY', variable: 'OCTO_API_KEY')]) {
-          sh sh '''
+          sh '''
             set -e
 
             # Cek versi CLI (auto-pull image)
