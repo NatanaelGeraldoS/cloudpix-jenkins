@@ -187,15 +187,22 @@ pipeline {
       steps {
         withCredentials([usernamePassword(credentialsId: 'DOCKER_HUB',
           usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-          sh """
-            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-            docker push ${BACKEND_IMAGE}      
+          sh '''
+            set -e
+            docker --version || true
+
+            # coba cara baru; kalau gagal (unknown flag), fallback ke -p
+            ( echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin ) \
+              || docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
+
+            docker push ${BACKEND_IMAGE}
             docker push ${FRONTEND_IMAGE}
             docker logout || true
-          """
+          '''
         }
       }
     }
+
 
 
     stage('Setup Docker CLI') {
