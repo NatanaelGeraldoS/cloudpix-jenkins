@@ -298,7 +298,6 @@ pipeline {
     stage('Release to Production (Octopus)') {
       when { branch 'main' }     
       steps {
-        input message: "Promote ${IMAGE_TAG} to PRODUCTION?", ok: 'Deploy'
         withCredentials([string(credentialsId: 'OCTOPUS_API_KEY', variable: 'OCTO_API_KEY')]) {
           sh '''
             set -e
