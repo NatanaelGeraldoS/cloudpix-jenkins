@@ -296,7 +296,7 @@ pipeline {
       }
     }
     stage('Release to Production (Octopus)') {
-      when { branch 'main' }     
+      when { branch 'origin/main' }     
       steps {
         withCredentials([string(credentialsId: 'OCTOPUS_API_KEY', variable: 'OCTO_API_KEY')]) {
           sh '''
