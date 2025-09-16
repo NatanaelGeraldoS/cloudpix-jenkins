@@ -320,9 +320,10 @@ pipeline {
               -e OCTOPUS_CLI_API_KEY="$OCTO_API_KEY" \
               octopusdeploy/octo:latest deploy-release \
               --server "$OCTO_URL" --space "$OCTO_SPACE" --project "$OCTO_PROJECT" \
-              --version "${IMAGE_TAG}" \
-              --environment "Production" \
+              --version "$IMAGE_TAG" \
+              --deployTo "Production" \
               --progress --cancelOnTimeout --deploymentTimeout "00:20:00"
+
           '''
         }
       }
