@@ -298,35 +298,28 @@ pipeline {
     stage('Release to Production (Octopus)') {
       steps {
         withCredentials([string(credentialsId: 'OCTOPUS_API_KEY', variable: 'OCTO_API_KEY')]) {
-          sh '''
+          sh sh '''
             set -e
 
-            # install octo cli jika belum ada
-            if ! command -v octo >/dev/null 2>&1; then
-              mkdir -p "$HOME/.local/bin"
-              curl -fsSL -o /tmp/octo.tar.gz \
-                https://github.com/OctopusDeploy/OctopusCLI/releases/download/v9.1.7/OctopusTools.9.1.7.linux-x64.tar.gz
-              tar -xzf /tmp/octo.tar.gz -C /tmp
-              mv /tmp/octo "$HOME/.local/bin/octo"
-              chmod +x "$HOME/.local/bin/octo"
-              export PATH="$HOME/.local/bin:$PATH"
-            fi
+            # Cek versi CLI (auto-pull image)
+            docker run --rm \
+              -e OCTOPUS_CLI_API_KEY="$OCTO_API_KEY" \
+              octopusdeploy/octo:latest version
 
-            octo version
-
-
-            # Buat release (versi = commit sha) dan kirim variable tag ke Octopus
-            octo create-release \
-              --server "$OCTO_URL" --apiKey "$OCTO_API_KEY" \
-              --space "$OCTO_SPACE" --project "$OCTO_PROJECT" \
+            # Create release
+            docker run --rm \
+              -e OCTOPUS_CLI_API_KEY="$OCTO_API_KEY" \
+              octopusdeploy/octo:latest create-release \
+              --server "$OCTO_URL" --space "$OCTO_SPACE" --project "$OCTO_PROJECT" \
               --version "${IMAGE_TAG}" \
               --variable "Image.Tag=${IMAGE_TAG}" \
               --releaseNotes "Jenkins build ${BUILD_NUMBER}, git ${GIT_SHA}"
 
-            # Deploy ke environment Production
-            octo deploy-release \
-              --server "$OCTO_URL" --apiKey "$OCTO_API_KEY" \
-              --space "$OCTO_SPACE" --project "$OCTO_PROJECT" \
+            # Deploy release
+            docker run --rm \
+              -e OCTOPUS_CLI_API_KEY="$OCTO_API_KEY" \
+              octopusdeploy/octo:latest deploy-release \
+              --server "$OCTO_URL" --space "$OCTO_SPACE" --project "$OCTO_PROJECT" \
               --version "${IMAGE_TAG}" \
               --environment "Production" \
               --progress --cancelOnTimeout --deploymentTimeout "00:20:00"
