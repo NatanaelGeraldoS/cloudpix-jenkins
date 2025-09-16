@@ -11,8 +11,12 @@ pipeline {
 
   environment {
     REGISTRY          = 'docker.io'
-    REGISTRY_NS       = 'natanaelgeraldo'      // TODO: ganti
+    REGISTRY_NS       = 'natanaelgeraldo'
     APP_NAME          = 'cloudpix'
+
+    OCTO_URL     = 'https://natanaelgeraldo.octopus.app'
+    OCTO_SPACE   = 'Default'
+    OCTO_PROJECT = 'cloudpix'
   }
 
   stages {
@@ -291,6 +295,41 @@ pipeline {
         }
       }
     }
+    stage('Release to Production (Octopus)') {
+      when { branch 'main' }     
+      steps {
+        input message: "Promote ${IMAGE_TAG} to PRODUCTION?", ok: 'Deploy'
+        withCredentials([string(credentialsId: 'OCTOPUS_API_KEY', variable: 'OCTO_API_KEY')]) {
+          sh '''
+            set -e
+
+            # install octo cli jika belum ada
+            if ! command -v octo >/dev/null 2>&1; then
+              curl -sSL https://octopus.com/downloads/latest/OctopusCLI/linux-x64 | tar -xz
+              mv octo $HOME/.local/bin/octo || sudo mv octo /usr/local/bin/octo
+              export PATH="$HOME/.local/bin:$PATH"
+            fi
+
+            # Buat release (versi = commit sha) dan kirim variable tag ke Octopus
+            octo create-release \
+              --server "$OCTO_URL" --apiKey "$OCTO_API_KEY" \
+              --space "$OCTO_SPACE" --project "$OCTO_PROJECT" \
+              --version "${IMAGE_TAG}" \
+              --variable "Image.Tag=${IMAGE_TAG}" \
+              --releaseNotes "Jenkins build ${BUILD_NUMBER}, git ${GIT_SHA}"
+
+            # Deploy ke environment Production
+            octo deploy-release \
+              --server "$OCTO_URL" --apiKey "$OCTO_API_KEY" \
+              --space "$OCTO_SPACE" --project "$OCTO_PROJECT" \
+              --version "${IMAGE_TAG}" \
+              --environment "Production" \
+              --progress --cancelOnTimeout --deploymentTimeout "00:20:00"
+          '''
+        }
+      }
+    }
+
   }
 
   post {
