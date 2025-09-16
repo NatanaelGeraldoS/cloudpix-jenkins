@@ -305,7 +305,7 @@ pipeline {
             if ! command -v octo >/dev/null 2>&1; then
               mkdir -p "$HOME/.local/bin"
               curl -fsSL -o /tmp/octo.tar.gz \
-                https://github.com/OctopusDeploy/OctopusCLI/releases/latest/download/octo-linux-x64.tar.gz
+                https://github.com/OctopusDeploy/OctopusCLI/releases/download/v9.1.7/OctopusTools.9.1.7.linux-x64.tar.gz
               tar -xzf /tmp/octo.tar.gz -C /tmp
               mv /tmp/octo "$HOME/.local/bin/octo"
               chmod +x "$HOME/.local/bin/octo"
