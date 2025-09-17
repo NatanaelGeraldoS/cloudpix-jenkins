@@ -7,7 +7,7 @@ const sequelize = require("../config/db");
 const validateEmail = require("../helpers/validateEmail");
 
 const router = express.Router();
-
+router.get("/health", (_req, res) => res.json({ status: "ok" }));
 // Register
 router.post("/register", async (req, res) => {
     const { username, email, password } = req.body;
