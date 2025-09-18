@@ -15,10 +15,10 @@ services:
         restart: unless-stopped
         labels:
             com.datadoghq.ad.check_names: '["http_check"]'
-            com.datadoghq.ad.init_configs: '[{}]'
+            com.datadoghq.ad.init_configs: "[{}]"
             com.datadoghq.ad.instances: >
                 [
-                { "name":"backend-health", "url":"http://localhost:5000/healthz", "timeout":2 }
+                { "name":"backend-health", "url":"http://localhost:5001/healthz", "timeout":2 }
                 ]
         healthcheck:
             test:
@@ -45,13 +45,15 @@ services:
         image: gcr.io/datadoghq/agent:7
         restart: unless-stopped
         environment:
-            - DD_API_KEY=${DD_API_KEY}    
-            - DD_SITE=DD_SITE=ap2.datadoghq.com
+            - DD_API_KEY=bacf336eb9fa0fa93b6bce4286437bea
+            - DD_SITE=ap2.datadoghq.com
             - DD_LOGS_ENABLED=true
             - DD_APM_ENABLED=true
             - DD_APM_NON_LOCAL_TRAFFIC=true
             - DD_DOGSTATSD_NON_LOCAL_TRAFFIC=true
             - DD_CONTAINER_EXCLUDE="name:datadog-agent"
+            - DD_PROCESS_AGENT_ENABLED=true
+            - DD_PROCESS_CONFIG_CONTAINER_COLLECTION_ENABLED=true
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock:ro
             - /proc/:/host/proc/:ro
