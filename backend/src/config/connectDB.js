@@ -14,7 +14,10 @@ const connectDB = async () => {
         await sequelize.authenticate();
         console.log("Database connected!");
 
-        if (process.env.ENV_TYPE !== "Production") {
+        if (
+            process.env.ENV_TYPE !== "Production" &&
+            process.env.ENV_TYPE !== "Staging"
+        ) {
             // Order the sync process
             await User.sync({ alter: true });
             console.log("User table synced.");

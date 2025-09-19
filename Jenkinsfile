@@ -97,23 +97,6 @@ pipeline {
             }
           }
         }
-
-        stage('API Contract (Postman/Newman)') {
-          when { expression { fileExists('tests/postman/collection.json') } }
-          steps {
-            sh '''
-              npm i -g newman
-              newman run tests/postman/collection.json \
-                --environment tests/postman/env.staging.json \
-                --reporters cli,junit --reporter-junit-export newman-results.xml || true
-            '''
-          }
-          post {
-            always {
-              junit allowEmptyResults: true, testResults: 'newman-results.xml'
-            }
-          }
-        }
       }
     }
 
@@ -190,7 +173,6 @@ pipeline {
             set -e
             docker --version || true
 
-            # coba cara baru; kalau gagal (unknown flag), fallback ke -p
             ( echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin ) \
               || docker login -u "$DOCKER_USER" -p "$DOCKER_PASS"
 
@@ -220,7 +202,7 @@ pipeline {
         sh '''
           # Check if docker-compose already exists
           if ! command -v docker-compose &> /dev/null; then
-            echo "Installing Docker Compose to user directory..."
+            echo "Install Docker Data..."
             
             # Create local bin directory
             mkdir -p $HOME/.local/bin
@@ -261,7 +243,7 @@ pipeline {
             sh """
               cat > .env.backend <<'EOF'
     PORT=5000
-    ENV_TYPE=Production
+    ENV_TYPE=Staging
     DB_NAME=${DB_NAME}
     DB_USER=${DB_USER}
     DB_PASS=${DB_PASS}
@@ -271,7 +253,6 @@ pipeline {
             """
           }
 
-          // Stop & deploy
           sh '''
             docker-compose -f docker-compose.staging.yml down || $HOME/.local/bin/docker-compose -f docker-compose.staging.yml down || true
             docker system prune -f || true

@@ -44,8 +44,10 @@ services:
     datadog:
         image: gcr.io/datadoghq/agent:7
         restart: unless-stopped
+        env_file:
+            - .env.production
         environment:
-            - DD_API_KEY=bacf336eb9fa0fa93b6bce4286437bea
+            - DD_API_KEY=${DD_API_KEY}
             - DD_SITE=ap2.datadoghq.com
             - DD_LOGS_ENABLED=true
             - DD_APM_ENABLED=true
