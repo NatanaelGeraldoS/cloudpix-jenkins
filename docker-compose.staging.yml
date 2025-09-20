@@ -3,7 +3,7 @@ version: "3.8"
 services:
     backend:
         image: ${BACKEND_IMAGE}
-        container_name: cloudpix-backend-staging
+        container_name: cloudpix-staging-backend
         env_file:
             - .env.backend
         ports:
@@ -22,7 +22,7 @@ services:
 
     frontend:
         image: ${FRONTEND_IMAGE}
-        container_name: cloudpix-frontend-staging
+        container_name: cloudpix-staging-frontend
         ports:
             - "3000:80"
         depends_on:
