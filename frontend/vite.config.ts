@@ -24,9 +24,5 @@ export default defineConfig({
       reporter: ['text', 'lcov', 'json'],
       reportsDirectory: 'coverage'
     }
-  },
-   esbuild: {
-    target: 'esnext',
-    platform: 'linux',
   }
 })

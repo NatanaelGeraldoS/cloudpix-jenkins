@@ -60,8 +60,13 @@
     "brace-expansion": "^4.0.1",
     "esbuild": "^0.25.10"
   },
-  "resolutions": {
-    "rollup": "npm:@rollup/wasm-node"
+  "optionalDependencies": {
+    "@rollup/rollup-darwin-arm64": "^4.32.0",
+    "@rollup/rollup-darwin-x64": "^4.32.0",
+    "@rollup/rollup-linux-arm64-gnu": "^4.32.0",
+    "@rollup/rollup-linux-x64-gnu": "^4.32.0",
+    "@rollup/rollup-win32-arm64-msvc": "^4.32.0",
+    "@rollup/rollup-win32-x64-msvc": "^4.32.0"
   }
   
 }
