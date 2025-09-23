@@ -1,6 +1,8 @@
 version: "3.8"
 
 services:
+    # Create the Image and for the backend we will read the env file and port 5001
+    # We will do the healtcheck using the http://localhost:5000/healthz
     backend:
         image: ${BACKEND_IMAGE}
         container_name: cloudpix-staging-backend
@@ -19,7 +21,8 @@ services:
             interval: 30s
             timeout: 10s
             retries: 3
-
+    # Create the image for the frontend and we will use port 3000
+    # This Frontend will depends on the backend container
     frontend:
         image: ${FRONTEND_IMAGE}
         container_name: cloudpix-staging-frontend

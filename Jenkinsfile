@@ -1,14 +1,16 @@
 pipeline {
   agent any
+  // Add timestamps to logs and keep keep only the last 20 build
   options {
     timestamps()
     buildDiscarder(logRotator(numToKeepStr: '20'))
   }
+  // Import the configured NodeJS and Docker
   tools { 
     nodejs 'NodeJS'
     dockerTool 'Docker' 
   }
-
+  // Define the common variable that will be used, such as the Octopus URL, space, project, the application name, etc
   environment {
     REGISTRY          = 'docker.io'
     REGISTRY_NS       = 'natanaelgeraldo'
@@ -20,6 +22,8 @@ pipeline {
   }
 
   stages {
+    // Initialize all of the variables that will be used on our CI/CD
+    // Echoing the name of image of our Backend and Frontend
     stage('Init Vars') {
       steps {
         script {
@@ -33,13 +37,15 @@ pipeline {
         }
       }
     }
-
+    // Checkout the repository Code
     stage('Checkout') {
       steps { checkout scm }
     }
 
     stage('Build') {
+      // Run it parallelly
       parallel {
+        // Install all of the depedency , and run the lint without blocking.
         stage('Backend: npm ci & (no-build)') {
           steps {
             dir('backend') {
@@ -49,6 +55,7 @@ pipeline {
             }
           }
         }
+        // Install depedency for the Frontend and run the production build. Then store the result of build as artifacts
         stage('Frontend: npm ci & build') {
           steps {
             dir('frontend') {
@@ -62,9 +69,11 @@ pipeline {
     }
 
     stage('Unit & Integration Tests') {
+      // Run it Parallelly
       parallel {
         stage('Backend: Jest + Supertest') {
           steps {
+            // Install depedency, and run the Jest with coverage, and publish the report and archive the coverage
             dir('backend') {
               sh '''
                 npm ci
@@ -81,6 +90,8 @@ pipeline {
         }
 
         stage('Frontend: Vitest') {
+          // Install depedency, and run the Vitest with coverage because we are using Vite for our frontend so it will suitable for this code. 
+          // And publish the report and archive the coverage
           steps {
             dir('frontend') {
               sh '''
@@ -102,6 +113,7 @@ pipeline {
 
     stage('SonarCloud Analysis') {
       steps {
+        // Download the SonarScanner CLI, and Authenticate with the our SONAR_TOKEN, and run a scan against SonarCloud
         withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
           sh '''
             set -e
@@ -126,6 +138,7 @@ pipeline {
 
     stage('Security') {
       parallel {
+        // INstall Snyk from the lastest version, and we authenticate with our SNYK_TOKEN, and run the test for the backend and frontend using the SNYK
         stage('Dependency Scan (Snyk)') {
           steps {
             withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
@@ -139,6 +152,7 @@ pipeline {
           }
         }
         stage('npm audit (baseline)') {
+          // Run audit in both apps and give warns if the audit level high or above
           steps {
             dir('backend') { sh 'npm audit --audit-level=high || true' }
             dir('frontend') { sh 'npm audit --audit-level=high || true' }
@@ -149,6 +163,7 @@ pipeline {
 
     stage('Docker Build') {
       parallel {
+        // Build the Backend Image
         stage('Build Backend Image') {
           steps {
             dir('backend') {
@@ -156,6 +171,7 @@ pipeline {
             }
           }
         }
+        // Build the Frontend Image
         stage('Build Frontend Image') {
           steps {
             dir('frontend') {
@@ -166,6 +182,7 @@ pipeline {
       }
     }
     stage('Docker Push') {
+      // Push the Images using teh docker hubs, we will login to the docker hub using our credentials
       steps {
         withCredentials([usernamePassword(credentialsId: 'DOCKER_HUB',
           usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
@@ -185,7 +202,7 @@ pipeline {
     }
 
 
-
+    // Add the Configuration of docker, and validate the docker version and docker compose version
     stage('Setup Docker CLI') {
       steps {
         script {
@@ -196,7 +213,7 @@ pipeline {
         }
       }
     }
-
+    // Check if the docker-compose already present, if not we will download to the local bin and make it executable and verivy the installation
     stage('Install Docker Compose') {
       steps {
         sh '''
@@ -225,7 +242,7 @@ pipeline {
       steps {
         script {
           sh 'export PATH="$HOME/.local/bin:$PATH"'
-
+          // Creating the Environment file for staging
           sh """
             cat > .env.staging <<EOF
     BACKEND_IMAGE=${env.BACKEND_IMAGE}
@@ -233,7 +250,7 @@ pipeline {
     IMAGE_TAG=${env.IMAGE_TAG}
     EOF
           """
-
+          // Creating the environment file for the Backend staging
           withCredentials([
             usernamePassword(credentialsId: 'CLOUDPIX_DB', usernameVariable: 'DB_USER', passwordVariable: 'DB_PASS'),
             string(credentialsId: 'CLOUDPIX_DB_NAME', variable: 'DB_NAME'),
@@ -252,7 +269,8 @@ pipeline {
     EOF
             """
           }
-
+          // We run the docker compose to clean and push all of the new deployment that we have
+          // Wait for 30 second to show the container list and recent logs
           sh '''
             docker-compose -f docker-compose.staging.yml down || $HOME/.local/bin/docker-compose -f docker-compose.staging.yml down || true
             docker system prune -f || true
@@ -281,10 +299,10 @@ pipeline {
           '''
         }
         failure {
-          echo 'Deployment to staging failed!'
+          echo 'Failed deployed to staging environment!'
           sh '''
             export PATH="$HOME/.local/bin:$PATH"
-            echo "=== DEPLOYMENT FAILURE LOGS ==="
+            echo "=== STAGING DEPLOYMENT STATUS FAILED ==="
             docker-compose -f docker-compose.staging.yml logs || $HOME/.local/bin/docker-compose -f docker-compose.staging.yml logs || echo "Failed to get logs"
             docker-compose -f docker-compose.staging.yml ps || $HOME/.local/bin/docker-compose -f docker-compose.staging.yml ps || echo "Failed to get container status"
           '''
@@ -293,16 +311,17 @@ pipeline {
     }
     stage('Release to Production (Octopus)') {
       steps {
+        // We will use the credential of Octopus API Key to deploy our releases
         withCredentials([string(credentialsId: 'OCTOPUS_API_KEY', variable: 'OCTO_API_KEY')]) {
           sh '''
             set -e
 
-            # Cek versi CLI (auto-pull image)
+            #CHeck the CLI version and use the lastest version
             docker run --rm \
               -e OCTOPUS_CLI_API_KEY="$OCTO_API_KEY" \
               octopusdeploy/octo:latest version
 
-            # Create release
+            # Create release, we create the release using the information that we have such as the image tage, build number and all of the release to the Octopus
             docker run --rm \
               -e OCTOPUS_CLI_API_KEY="$OCTO_API_KEY" \
               octopusdeploy/octo:latest create-release \
@@ -311,7 +330,7 @@ pipeline {
               --variable "Image.Tag=${IMAGE_TAG}" \
               --releaseNotes "Jenkins build ${BUILD_NUMBER}, git ${GIT_SHA}"
 
-            # Deploy release
+            # Deploy release, we will deploy the production environtment using Octopus, with timeout 20 minutes.
             docker run --rm \
               -e OCTOPUS_CLI_API_KEY="$OCTO_API_KEY" \
               octopusdeploy/octo:latest deploy-release \
@@ -336,9 +355,11 @@ pipeline {
       '''
     }
     success {
+      // Echo if Success
       echo 'Pipeline completed successfully! ✅'
     }
     failure {
+      // Echo if Failed
       echo 'Pipeline failed! ❌'
     }
   }

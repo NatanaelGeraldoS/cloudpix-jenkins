@@ -1,4 +1,6 @@
 services:
+    # For the Backend we will use port 5001, and we will use the environment file .env.production.backend
+    # We will use the Datadog for the data check and we will check the healt for the port http://localhost:5001/healthz
     backend:
         ports:
             - "5001:5000"
@@ -29,7 +31,8 @@ services:
             interval: 30s
             timeout: 10s
             retries: 3
-
+    # For the Frontend we will depends on the backend image, and will use port 80:80
+    # We will use the Datadog also as the metric and data visualization for the log
     frontend:
         image: ${FRONTEND_IMAGE}:${IMAGE_TAG}
         depends_on:
@@ -41,6 +44,7 @@ services:
             - DD_ENV=production
             - DD_SERVICE=cloudpix-frontend
             - DD_VERSION=${IMAGE_TAG}
+    # For the datadog, we will use the DD_API_KEY that we already store it on the .env.production file
     datadog:
         image: gcr.io/datadoghq/agent:7
         restart: unless-stopped
