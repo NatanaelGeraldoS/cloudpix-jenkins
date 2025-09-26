@@ -201,18 +201,6 @@ pipeline {
       }
     }
 
-
-    // Add the Configuration of docker, and validate the docker version and docker compose version
-    stage('Setup Docker CLI') {
-      steps {
-        script {
-          def dockerHome = tool name: 'Docker', type: 'org.jenkinsci.plugins.docker.commons.tools.DockerTool'
-          env.PATH = "${dockerHome}/bin:${env.PATH}"
-          sh 'docker --version || true'
-          sh 'docker compose version || true'
-        }
-      }
-    }
     // Check if the docker-compose already present, if not we will download to the local bin and make it executable and verivy the installation
     stage('Install Docker Compose') {
       steps {
