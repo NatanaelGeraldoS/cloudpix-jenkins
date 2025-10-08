@@ -46,7 +46,7 @@ pipeline {
       // Run it parallelly
       parallel {
         // Install all of the depedency , and run the lint without blocking.
-        stage('Backend: npm ci & (no-build)') {
+        stage('Backend') {
           steps {
             dir('backend') {
               sh 'npm ci'
@@ -56,7 +56,7 @@ pipeline {
           }
         }
         // Install depedency for the Frontend and run the production build. Then store the result of build as artifacts
-        stage('Frontend: npm ci & build') {
+        stage('Frontend') {
           steps {
             dir('frontend') {
               sh 'npm ci'
@@ -71,7 +71,7 @@ pipeline {
     stage('Unit & Integration Tests') {
       // Run it Parallelly
       parallel {
-        stage('Backend: Jest + Supertest') {
+        stage('Backend') {
           steps {
             // Install depedency, and run the Jest with coverage, and publish the report and archive the coverage
             dir('backend') {
@@ -89,14 +89,13 @@ pipeline {
           }
         }
 
-        stage('Frontend: Vitest') {
+        stage('Frontend') {
           // Install depedency, and run the Vitest with coverage because we are using Vite for our frontend so it will suitable for this code. 
           // And publish the report and archive the coverage
           steps {
             dir('frontend') {
               sh '''
                 npm ci
-                # jalankan vitest dgn coverage (butuh @vitest/coverage-v8 terpasang)
                 npx vitest run --coverage || true
               '''
             }
@@ -117,15 +116,12 @@ pipeline {
         withCredentials([string(credentialsId: 'SONAR_TOKEN', variable: 'SONAR_TOKEN')]) {
           sh '''
             set -e
-
             SCANNER_VERSION=5.0.1.3006
             SCANNER_DIR=.scanner-cli
             SCANNER_URL="https://binaries.sonarsource.com/Distribution/sonar-scanner-cli/sonar-scanner-cli-${SCANNER_VERSION}-linux.zip"
 
             rm -rf "$SCANNER_DIR"
             mkdir -p "$SCANNER_DIR"
-            echo "Downloading SonarScanner ${SCANNER_VERSION}..."
-            curl -sSL --retry 3 --retry-delay 2 "$SCANNER_URL" -o "$SCANNER_DIR/scanner.zip"
             unzip -q "$SCANNER_DIR/scanner.zip" -d "$SCANNER_DIR"
             SCANNER_BIN="$(echo $SCANNER_DIR/sonar-scanner-*/bin/sonar-scanner)"
 
@@ -164,7 +160,7 @@ pipeline {
     stage('Docker Build') {
       parallel {
         // Build the Backend Image
-        stage('Build Backend Image') {
+        stage('Backend Image') {
           steps {
             dir('backend') {
               sh "docker build -t ${env.BACKEND_IMAGE} ."
@@ -172,7 +168,7 @@ pipeline {
           }
         }
         // Build the Frontend Image
-        stage('Build Frontend Image') {
+        stage('Frontend Image') {
           steps {
             dir('frontend') {
               sh "docker build -t ${env.FRONTEND_IMAGE} ."
@@ -207,21 +203,14 @@ pipeline {
         sh '''
           # Check if docker-compose already exists
           if ! command -v docker-compose &> /dev/null; then
-            echo "Install Docker Data..."
             
-            # Create local bin directory
             mkdir -p $HOME/.local/bin
             
-            # Download Docker Compose
             curl -L "https://github.com/docker/compose/releases/download/v2.21.0/docker-compose-$(uname -s)-$(uname -m)" -o $HOME/.local/bin/docker-compose
             chmod +x $HOME/.local/bin/docker-compose
-            
-            # Add to PATH for this session
+          
             export PATH="$HOME/.local/bin:$PATH"
           fi
-          
-          # Verify installation
-          $HOME/.local/bin/docker-compose --version || docker-compose --version || echo "Docker Compose installation failed"
         '''
       }
     }
@@ -265,8 +254,6 @@ pipeline {
 
             docker-compose -f docker-compose.staging.yml --env-file .env.staging up -d \
               || $HOME/.local/bin/docker-compose -f docker-compose.staging.yml --env-file .env.staging up -d
-
-            echo "Waiting for services to start..."
             sleep 30
 
             docker ps
