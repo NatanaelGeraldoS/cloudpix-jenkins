@@ -244,11 +244,7 @@ pipeline {
     DB_HOST=${DB_HOST}
     JWT_SECRET=${JWT_SECRET}
     EOF
-            """
-          }
-          // We run the docker compose to clean and push all of the new deployment that we have
-          // Wait for 30 second to show the container list and recent logs
-          sh '''
+            
             docker-compose -f docker-compose.staging.yml down || $HOME/.local/bin/docker-compose -f docker-compose.staging.yml down || true
             docker system prune -f || true
 
@@ -259,28 +255,7 @@ pipeline {
             docker ps
             docker-compose -f docker-compose.staging.yml logs --tail=50 \
               || $HOME/.local/bin/docker-compose -f docker-compose.staging.yml logs --tail=50
-          '''
-        }
-      }
-      post {
-        success {
-          echo 'Successfully deployed to staging environment!'
-          sh '''
-            export PATH="$HOME/.local/bin:$PATH"
-            echo "=== STAGING DEPLOYMENT STATUS ==="
-            echo "Frontend: http://localhost:3000"
-            echo "Backend: http://localhost:5001"
-            docker-compose -f docker-compose.staging.yml ps || $HOME/.local/bin/docker-compose -f docker-compose.staging.yml ps
-          '''
-        }
-        failure {
-          echo 'Failed deployed to staging environment!'
-          sh '''
-            export PATH="$HOME/.local/bin:$PATH"
-            echo "=== STAGING DEPLOYMENT STATUS FAILED ==="
-            docker-compose -f docker-compose.staging.yml logs || $HOME/.local/bin/docker-compose -f docker-compose.staging.yml logs || echo "Failed to get logs"
-            docker-compose -f docker-compose.staging.yml ps || $HOME/.local/bin/docker-compose -f docker-compose.staging.yml ps || echo "Failed to get container status"
-          '''
+          """
         }
       }
     }
@@ -290,12 +265,6 @@ pipeline {
         withCredentials([string(credentialsId: 'OCTOPUS_API_KEY', variable: 'OCTO_API_KEY')]) {
           sh '''
             set -e
-
-            #CHeck the CLI version and use the lastest version
-            docker run --rm \
-              -e OCTOPUS_CLI_API_KEY="$OCTO_API_KEY" \
-              octopusdeploy/octo:latest version
-
             # Create release, we create the release using the information that we have such as the image tage, build number and all of the release to the Octopus
             docker run --rm \
               -e OCTOPUS_CLI_API_KEY="$OCTO_API_KEY" \
@@ -331,11 +300,11 @@ pipeline {
     }
     success {
       // Echo if Success
-      echo 'Pipeline completed successfully! ✅'
+      echo 'Pipeline completed successfully!'
     }
     failure {
       // Echo if Failed
-      echo 'Pipeline failed! ❌'
+      echo 'Pipeline failed!'
     }
   }
 }
